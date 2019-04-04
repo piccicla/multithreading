@@ -1,6 +1,8 @@
 #include <iostream>
 #include <thread>
-
+#include <vector>
+#include <algorithm>
+#include <string>
 
 void hello() {
 	std::cout << "hello multithreading\n";
@@ -71,6 +73,83 @@ void f()
 }
 
 
+class thread_guard
+{
+	std::thread& t;
+	public:
+		explicit thread_guard(std::thread& t_):t(t_)
+		{
+			std::cout << "hello from guard constructor\n";
+		}
+		~thread_guard()
+		{		
+			if (t.joinable())
+			{	
+				std::cout << "guard is joining thread\n";
+				t.join();
+			}
+		}
+		thread_guard(thread_guard const&) = delete; //disable copy constructor
+		thread_guard& operator=(thread_guard const&) = delete;
+};
+void f2()
+{
+	int local_state = 6;
+	func my_func(local_state);
+	std::thread my_thread(my_func);
+	thread_guard g(my_thread);
+
+	do_something_current_thread();
+
+}
+
+class scoped_thread
+{
+	std::thread t;
+public:
+	explicit scoped_thread(std::thread t_) :
+		t(std::move(t_))   //move ownership 
+	{
+		if (!t.joinable())
+			throw std::logic_error("No thread");
+	}
+	~scoped_thread()
+	{
+		t.join();
+	}
+	scoped_thread(scoped_thread const&) = delete;
+	scoped_thread& operator=(scoped_thread const&) = delete;
+};
+
+void f3()
+{
+	int some_local_state;
+	scoped_thread t(std::thread(func(some_local_state))); //transfer ownership to thread
+
+	do_something_current_thread();
+}
+
+
+void do_work(unsigned id)
+{
+	std::cout << "hello from " + std::to_string(id) + "\n"; 
+}
+
+void f4()
+{
+	std::vector<std::thread> threads;
+	for (unsigned i = 0; i < 20; ++i)
+	{
+		threads.emplace_back(std::thread(do_work, i));
+	}
+	std::for_each(threads.begin(), threads.end(),
+		std::mem_fn(&std::thread::join)); //mem_fn to store and execute a member function https://en.cppreference.com/w/cpp/utility/functional/mem_fn
+	//for (auto& entry : threads) {
+	//	entry.join();
+	//}
+}
+
+
 int main() {
 
 
@@ -97,7 +176,16 @@ int main() {
 	//oops();
 
 	//p.21
-	f();
+	//f();
+
+	//p.22
+	//f2();
+
+	//p.28
+	//f3();
+
+	//p31
+	f4();
 
 	return 0;
 }
